@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import {  UserMetrics } from "@/components/ecommerce/UserMetrics";
 import React from "react";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
-import RecentOrders from "@/components/ecommerce/RecentOrders";
+import RecentOrders from "@/components/ecommerce/UsersSignedup";
 import DemographicCard from "@/components/ecommerce/DemographicCard";
 import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 import DailyViews from "@/components/ecommerce/DailyViewsChart";
@@ -25,7 +25,7 @@ export default function BlankPage() {
             <div className="col-span-12 xl:col-span-5 gap-4 md:gap-6">
             <div className="col-span-12 space-y-6 xl:col-span-7">
             <RevenueDetails/>
-            <DemographicCard />
+            <RecentOrders/>
             </div>
              
             </div>

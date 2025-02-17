@@ -3,7 +3,7 @@ import { UserMetrics } from "@/components/ecommerce/UserMetrics";
 import React from "react";
 import MonthlySalesChart from "@/components/ecommerce/DailyViewsChart";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
-import RecentOrders from "@/components/ecommerce/RecentOrders";
+import RecentOrders from "@/components/ecommerce/UsersSignedup";
 import DemographicCard from "@/components/ecommerce/DemographicCard";
 import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 
