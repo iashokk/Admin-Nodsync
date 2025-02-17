@@ -1,3 +1,5 @@
+"use client"
+
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import "swiper/css";
@@ -6,6 +8,7 @@ import "swiper/css/pagination";
 import "swiper/css/autoplay";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import useRequireAuth from "@/hooks/useRequireAuth";
 
 const outfit = Outfit({
   variable: "--font-outfit-sans",
@@ -17,6 +20,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { user, loading } = useRequireAuth();
   return (
     <html lang="en">
       <body className={`${outfit.variable} dark:bg-gray-900`}>
