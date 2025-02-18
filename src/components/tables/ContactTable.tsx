@@ -382,7 +382,7 @@ export default function ContactTable() {
                 <TableCell className="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">
                   {contact.createdAt?.toDate
                     ? contact.createdAt.toDate().toLocaleString()
-                    : contact.createdAt}
+                    : String(contact.createdAt)}
                 </TableCell>
               </TableRow>
             ))}
@@ -455,7 +455,7 @@ export default function ContactTable() {
                 <span className="font-medium">Created:</span>{" "}
                 {contact.createdAt?.toDate
                   ? contact.createdAt.toDate().toLocaleString()
-                  : contact.createdAt}
+                  : String(contact.createdAt)}
               </p>
               <div className="mt-2">
                 <label className="font-medium text-sm text-gray-800 dark:text-white">
