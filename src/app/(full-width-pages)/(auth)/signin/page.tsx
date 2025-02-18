@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Next.js SignIn Page | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js Signin Page TailAdmin Dashboard Template",
+  title: "NodSync Admin",
+  description: "This is NodSync Admin Signin Page",
 };
 
 export default function SignIn() {
@@ -26,7 +26,7 @@ export default function SignIn() {
             />
           </Link>
           <p className="text-center text-gray-400 dark:text-white/60">
-            Free and Open-Source Tailwind CSS Admin Dashboard Template
+            NodSync Admin Dashboard
           </p>
         </div>
       </div>
