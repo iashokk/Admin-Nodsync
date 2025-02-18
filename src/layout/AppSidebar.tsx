@@ -27,11 +27,17 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <BoxCubeIcon />,
+    name: "Contact",
+    path: "/contact",
+  },
+
+  {
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
   },
-
+ 
 ];
 
 
