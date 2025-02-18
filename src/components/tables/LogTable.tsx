@@ -30,11 +30,11 @@ interface LogEntry {
 }
 
 export default function LogTable() {
-  // State for logs, pagination, loading and expanded rows
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(true);
 
   // Function to load logs
   const loadLogs = async (loadMore = false) => {
@@ -43,7 +43,12 @@ export default function LogTable() {
       const logsCollection = collection(firestore, "logs");
       let q;
       if (loadMore && lastDoc) {
-        q = query(logsCollection, orderBy("timestamp", "desc"), startAfter(lastDoc), limit(50));
+        q = query(
+          logsCollection,
+          orderBy("timestamp", "desc"),
+          startAfter(lastDoc),
+          limit(50)
+        );
       } else {
         q = query(logsCollection, orderBy("timestamp", "desc"), limit(50));
       }
@@ -65,6 +70,10 @@ export default function LogTable() {
       }
       if (!snapshot.empty) {
         setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      // If fewer than 50 logs were fetched, no more logs exist
+      if (snapshot.docs.length < 50) {
+        setHasMore(false);
       }
     } catch (error) {
       console.error("Error loading logs:", error);
@@ -171,12 +180,14 @@ export default function LogTable() {
             {loading ? (
               <p>Loading...</p>
             ) : (
-              <button
-                onClick={() => loadLogs(true)}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Load More
-              </button>
+              hasMore && (
+                <button
+                  onClick={() => loadLogs(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Load More
+                </button>
+              )
             )}
           </div>
         </div>
