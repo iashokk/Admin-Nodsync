@@ -28,7 +28,7 @@ interface Contact {
   description: string;
   email: string;
   name: string;
-  phone: string;
+  number: string; // Changed property from phone to number
   role: string;
   subject: string;
   surname: string;
@@ -67,7 +67,7 @@ interface PopupData {
   description?: string;
   name?: string;
   email?: string;
-  phone?: string;
+  number?: string;
 }
 
 export default function ContactTable() {
@@ -200,7 +200,7 @@ export default function ContactTable() {
     );
   }
 
-  // Render name as clickable (opens modal with name, email, phone)
+  // Render name as clickable (opens modal with name, email and number)
   function renderNameDesktop(contact: ContactWithStatus) {
     return (
       <span
@@ -209,7 +209,7 @@ export default function ContactTable() {
             type: "name",
             name: contact.name + " " + (contact.surname || ""),
             email: contact.email,
-            phone: contact.phone,
+            number: contact.number,
           })
         }
         className="cursor-pointer text-blue-600 hover:underline"
@@ -422,7 +422,7 @@ export default function ContactTable() {
                       type: "name",
                       name: contact.name + " " + (contact.surname || ""),
                       email: contact.email,
-                      phone: contact.phone,
+                      number: contact.number,
                     })
                   }
                   className="cursor-pointer text-blue-600 hover:underline"
@@ -459,9 +459,7 @@ export default function ContactTable() {
                 <label className="font-medium text-sm">Status: </label>
                 <select
                   value={contact.status}
-                  onChange={(e) =>
-                    handleStatusChange(contact.id, e.target.value)
-                  }
+                  onChange={(e) => handleStatusChange(contact.id, e.target.value)}
                   className={`${dropdownClasses} ml-2`}
                 >
                   {statusOptions.map((option) => (
@@ -475,9 +473,7 @@ export default function ContactTable() {
                 <label className="font-medium text-sm">Mentor: </label>
                 <select
                   value={contact.mentor}
-                  onChange={(e) =>
-                    handleMentorChange(contact.id, e.target.value)
-                  }
+                  onChange={(e) => handleMentorChange(contact.id, e.target.value)}
                   className={`${dropdownClasses} ml-2`}
                 >
                   {mentorOptions.map((option) => (
@@ -528,10 +524,12 @@ export default function ContactTable() {
                     {popupData.email}
                   </p>
                 )}
-                <p className="mb-4">
-                  <span className="font-medium">Phone: </span>
-                  {popupData.phone}
-                </p>
+                {popupData.number && (
+                  <p className="mb-4">
+                    <span className="font-medium">Number: </span>
+                    {popupData.number}
+                  </p>
+                )}
               </>
             )}
             <button
