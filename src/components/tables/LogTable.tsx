@@ -113,8 +113,10 @@ export default function LogTable() {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
-        <div className="min-w-[1002px]">
-          <Table>
+        {/* Changed min-w from [1002px] to full width */}
+        <div className="min-w-full">
+          {/* Added table-fixed and border-collapse classes */}
+          <Table className="table-fixed border-collapse">
             {/* Table Header */}
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
@@ -126,13 +128,13 @@ export default function LogTable() {
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  className="px-3 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
                   Message
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  className="px-3 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
                   Level
                 </TableCell>
@@ -147,17 +149,17 @@ export default function LogTable() {
                     onClick={() => toggleRow(log.id, log.metadata)}
                     className={Object.keys(log.metadata).length ? "cursor-pointer" : ""}
                   >
-                    <TableCell className="px-5 py-4 sm:px-6 text-start">
+                    <TableCell className="px-3 py-4 sm:px-4 text-start">
                       <div className="flex items-center text-theme-sm dark:text-gray-400">
                         {log.timestamp?.toDate
                           ? log.timestamp.toDate().toLocaleString()
                           : log.timestamp}
                       </div>
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <TableCell className="px-3 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                       {log.message}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                    <TableCell className="px-3 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                       <Badge size="sm" color={getBadgeColor(log.level)}>
                         {log.level}
                       </Badge>
@@ -165,7 +167,7 @@ export default function LogTable() {
                   </TableRow>
                   {expandedRows.has(log.id) && (
                     <TableRow>
-                      <TableCell colSpan={3} className="px-5 py-4 bg-gray-50 dark:bg-gray-800">
+                      <TableCell colSpan={3} className="px-3 py-4 bg-gray-50 dark:bg-gray-800">
                         <pre className="text-sm text-gray-600 dark:text-gray-300">
                           {JSON.stringify(log.metadata, null, 2)}
                         </pre>
