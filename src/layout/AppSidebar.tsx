@@ -27,11 +27,15 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
-    icon: <BoxCubeIcon />,
+    icon: <HorizontaLDots />,
     name: "Contact",
     path: "/contact",
   },
-
+  {
+    icon: <BoxCubeIcon />,
+    name: "Expense",
+    path: "/expense",
+  },
   {
     icon: <CalenderIcon />,
     name: "Calendar",

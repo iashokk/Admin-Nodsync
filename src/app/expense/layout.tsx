@@ -5,7 +5,6 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
-import { ExpenseTotalsProvider } from "@/context/ExpenseTotalsContext";
 
 export default function AdminLayout({
   children,
@@ -22,25 +21,19 @@ export default function AdminLayout({
     : "lg:ml-[90px]";
 
   return (
-    
     <div className="min-h-screen xl:flex">
-      <ExpenseTotalsProvider>
       {/* Sidebar and Backdrop */}
       <AppSidebar />
       <Backdrop />
       {/* Main Content Area */}
-      <div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
+      <div
+        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
+      >
         {/* Header */}
         <AppHeader />
-        {/* Wrap children with ExpenseTotalsProvider */}
-        
-          <div className="p-4 mx-auto max-w-screen-2xl md:p-6">
-            {children}
-          </div>
-        
+        {/* Page Content */}
+        <div className="p-4 mx-auto max-w-screen-2xl md:p-6">{children}</div>
       </div>
-      </ExpenseTotalsProvider>
     </div>
-    
   );
 }
