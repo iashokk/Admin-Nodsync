@@ -28,7 +28,7 @@ interface Contact {
   description: string;
   email: string;
   name: string;
-  number: string; // Changed property from phone to number
+  number: string; // using "number" as key from Firestore
   role: string;
   subject: string;
   surname: string;
@@ -142,7 +142,6 @@ export default function ContactTable() {
     }
   };
 
-  // Handlers for marking done/undo and deletion (unchanged)
   const handleMarkDone = async () => {
     try {
       const updates = selectedIds.map(async (id) => {
@@ -225,19 +224,21 @@ export default function ContactTable() {
     (contact) => filterStatus === "All" || contact.status === filterStatus
   );
 
-  // Common dropdown styling
+  // Common dropdown styling (updated for dark mode)
   const dropdownClasses =
-    "bg-white border border-gray-300 text-gray-700 py-1 px-2 pr-8 rounded leading-tight appearance-none focus:outline-none focus:ring focus:border-blue-500";
+    "bg-white border border-gray-300 text-gray-700 py-1 px-2 pr-8 rounded leading-tight appearance-none focus:outline-none focus:ring focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white";
 
   return (
     <div className="max-w-7xl mx-auto p-4">
       {/* Filter */}
       <div className="mb-4 flex items-center space-x-2">
-        <label className="font-medium text-sm">Filter by status:</label>
+        <label className="font-medium text-sm text-gray-800 dark:text-white/90">
+          Filter by status:
+        </label>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded focus:outline-none focus:ring focus:border-blue-500"
+          className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded focus:outline-none focus:ring focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
         >
           <option value="All">All</option>
           {statusOptions.map((option) => (
@@ -247,11 +248,6 @@ export default function ContactTable() {
           ))}
         </select>
       </div>
-
-      {/* Loading indicator */}
-      {loading && (
-        <div className="mb-4 text-center text-gray-700 dark:text-gray-300">Loading…</div>
-      )}
 
       {/* Action Buttons */}
       {selectedIds.length > 0 && (
@@ -282,13 +278,13 @@ export default function ContactTable() {
       )}
 
       {/* Desktop/Table Version */}
-      <div className="hidden sm:block overflow-x-auto custom-scrollbar rounded-xl border border-gray-200 bg-white shadow">
+      <div className="hidden sm:block overflow-x-auto custom-scrollbar rounded-xl border border-gray-200 bg-white shadow dark:border-gray-800 dark:bg-white/[0.03]">
         <Table className="w-full table-auto">
-          <TableHeader className="bg-gray-100">
+          <TableHeader className="bg-gray-100 dark:bg-gray-800">
             <TableRow>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 <input
                   type="checkbox"
@@ -305,41 +301,41 @@ export default function ContactTable() {
               </TableCell>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 Name
               </TableCell>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 Subject
               </TableCell>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 Status
               </TableCell>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 Mentor
               </TableCell>
               <TableCell
                 isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
               >
                 Created Date
               </TableCell>
             </TableRow>
           </TableHeader>
-          <TableBody className="bg-white divide-y divide-gray-200">
+          <TableBody className="bg-white divide-y divide-gray-200 dark:bg-transparent dark:divide-gray-700">
             {filteredContacts.map((contact) => (
               <TableRow
                 key={contact.id}
-                className={`transition-colors duration-200 hover:bg-gray-50 ${
+                className={`transition-colors duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
                   contact.isDone ? "line-through text-gray-400" : ""
                 }`}
               >
@@ -383,7 +379,7 @@ export default function ContactTable() {
                     ))}
                   </select>
                 </TableCell>
-                <TableCell className="px-4 py-3 whitespace-nowrap">
+                <TableCell className="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">
                   {contact.createdAt?.toDate
                     ? contact.createdAt.toDate().toLocaleString()
                     : contact.createdAt}
@@ -392,6 +388,12 @@ export default function ContactTable() {
             ))}
           </TableBody>
         </Table>
+        {/* Loading indicator below the table */}
+        {loading && (
+          <div className="py-3 text-center text-gray-700 dark:text-gray-300">
+            Loading…
+          </div>
+        )}
       </div>
 
       {/* Mobile/Card Version */}
@@ -401,10 +403,10 @@ export default function ContactTable() {
             key={contact.id}
             className={`p-4 border rounded shadow bg-white transition-colors duration-200 ${
               contact.isDone ? "line-through text-gray-400" : ""
-            }`}
+            } dark:bg-gray-800 dark:border-gray-700`}
           >
             <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold">
+              <span className="text-lg font-semibold text-gray-800 dark:text-white">
                 {contact.name} {contact.surname}
               </span>
               <input
@@ -414,7 +416,7 @@ export default function ContactTable() {
                 className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
               />
             </div>
-            <div className="mt-2 text-sm">
+            <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
               <p>
                 <span
                   onClick={() =>
@@ -456,7 +458,9 @@ export default function ContactTable() {
                   : contact.createdAt}
               </p>
               <div className="mt-2">
-                <label className="font-medium text-sm">Status: </label>
+                <label className="font-medium text-sm text-gray-800 dark:text-white">
+                  Status:
+                </label>
                 <select
                   value={contact.status}
                   onChange={(e) => handleStatusChange(contact.id, e.target.value)}
@@ -470,7 +474,9 @@ export default function ContactTable() {
                 </select>
               </div>
               <div className="mt-2">
-                <label className="font-medium text-sm">Mentor: </label>
+                <label className="font-medium text-sm text-gray-800 dark:text-white">
+                  Mentor:
+                </label>
                 <select
                   value={contact.mentor}
                   onChange={(e) => handleMentorChange(contact.id, e.target.value)}
@@ -497,15 +503,17 @@ export default function ContactTable() {
             onClick={() => setPopupData(null)}
           />
           {/* Modal Card */}
-          <div className="relative bg-white p-6 rounded shadow max-w-md w-full mx-2">
+          <div className="relative bg-white p-6 rounded shadow max-w-md w-full mx-2 dark:bg-gray-900">
             {popupData.type === "subject" && (
               <>
-                <h2 className="text-lg font-semibold mb-4">Subject Details</h2>
-                <p className="mb-2">
+                <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+                  Subject Details
+                </h2>
+                <p className="mb-2 text-gray-700 dark:text-gray-300">
                   <span className="font-medium">Subject: </span>
                   {popupData.subject}
                 </p>
-                <p className="mb-4">
+                <p className="mb-4 text-gray-700 dark:text-gray-300">
                   <span className="font-medium">Description: </span>
                   {popupData.description}
                 </p>
@@ -513,19 +521,21 @@ export default function ContactTable() {
             )}
             {popupData.type === "name" && (
               <>
-                <h2 className="text-lg font-semibold mb-4">Contact Details</h2>
-                <p className="mb-2">
+                <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+                  Contact Details
+                </h2>
+                <p className="mb-2 text-gray-700 dark:text-gray-300">
                   <span className="font-medium">Name: </span>
                   {popupData.name}
                 </p>
                 {popupData.email && (
-                  <p className="mb-2">
+                  <p className="mb-2 text-gray-700 dark:text-gray-300">
                     <span className="font-medium">Email: </span>
                     {popupData.email}
                   </p>
                 )}
                 {popupData.number && (
-                  <p className="mb-4">
+                  <p className="mb-4 text-gray-700 dark:text-gray-300">
                     <span className="font-medium">Number: </span>
                     {popupData.number}
                   </p>
@@ -533,7 +543,7 @@ export default function ContactTable() {
               </>
             )}
             <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition dark:bg-blue-600 dark:hover:bg-blue-700"
               onClick={() => setPopupData(null)}
             >
               Close
