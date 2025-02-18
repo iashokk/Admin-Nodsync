@@ -93,7 +93,7 @@ export default function LogTable() {
               {tableData.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="px-5 py-4 sm:px-6 text-start">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center text-gray-700 text-start text-theme-sm dark:text-gray-400">
                       {order.time}
                       
                     </div>
