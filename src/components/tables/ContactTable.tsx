@@ -1,56 +1,55 @@
 "use client";
-import React, { useState } from "react";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "../ui/table";
+import React, { useEffect, useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import Image from "next/image";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  updateDoc,
+  Timestamp,
+} from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 
+// Define interfaces for contacts and status
 interface Contact {
-  id: number;
-  name: string;
+  id: string;
+  createdAt: Timestamp;
+  description: string;
   email: string;
+  name: string;
   phone: string;
-  topic: string;
+  role: string;
   subject: string;
-  status: string;
-  mentor: string;
-  isDone?: boolean;
+  surname: string;
+  topic: string;
 }
 
-const initialContacts: Contact[] = [
-  {
-    id: 1,
-    name: "SHALINI S",
-    email: "btechcse231533@smvec.ac.in",
-    phone: "9952473504",
-    topic: "general",
-    subject: "9952473504 I want to start from scrach",
-    status: "In Progress",
-    mentor: "Ashok",
-    isDone: false,
-  },
-  {
-    id: 2,
-    name: "DEVAGURU V",
-    email: "devaguruvkdk@gmail.com",
-    phone: "8610332446",
-    topic: "general",
-    subject: "cybersecurity",
-    status: "In Progress",
-    mentor: "Logesh",
-    isDone: false,
-  },
-  {
-    id: 3,
-    name: "Kiran",
-    email: "",
-    phone: "9362427258",
-    topic: "",
-    subject:
-      "I wanna start working on IoT related stuffs but I don't know what to study and when I asked my senior about it he said me to do projects and that I'll eventually learn from it but I need help with starting out with that too",
-    status: "Awaiting Response",
-    mentor: "Fazil",
-    isDone: false,
-  },
-];
+interface StatusData {
+  isDone: boolean;
+  status: string;
+  mentor: string;
+}
 
+type ContactWithStatus = Contact & StatusData;
+
+const DEFAULT_STATUS: StatusData = {
+  isDone: false,
+  status: "Not Started",
+  mentor: "Not Assigned",
+};
+
+// Options for dropdowns
 const statusOptions = [
   "Not Started",
   "Awaiting Response",
@@ -59,165 +58,186 @@ const statusOptions = [
   "Done",
   "Cancelled",
 ];
-const mentorOptions = ["Ashok", "Logesh", "Fazil", "Ranjani"];
+const mentorOptions = ["Not Assigned", "Ashok", "Logesh", "Fazil", "Ranjani"];
+
+// Popup data interface for modal
+interface PopupData {
+  type: "subject" | "name";
+  subject?: string;
+  description?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
 
 export default function ContactTable() {
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [expandedSubjects, setExpandedSubjects] = useState<{ [key: number]: boolean }>(
-    {}
-  );
-  const [popupSubject, setPopupSubject] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<ContactWithStatus[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
 
-  /* ---------------------------
-   *    Mobile: Toggle Subject
-   * --------------------------- */
-  const handleToggleSubject = (id: number) => {
-    setExpandedSubjects((prev) => ({ ...prev, [id]: !prev[id] }));
+  // Fetch contacts and merge with status from Firestore
+  const fetchContacts = async () => {
+    setLoading(true);
+    try {
+      const contactsCollection = collection(firestore, "contacts");
+      const q = query(contactsCollection, orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const fetchedContacts: ContactWithStatus[] = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const contactData = docSnap.data() as Contact;
+          const id = docSnap.id;
+          const statusRef = doc(firestore, "status", id);
+          const statusSnap = await getDoc(statusRef);
+          let statusData: StatusData;
+          if (!statusSnap.exists()) {
+            statusData = DEFAULT_STATUS;
+            await setDoc(statusRef, statusData);
+          } else {
+            statusData = statusSnap.data() as StatusData;
+          }
+          return { id, ...contactData, ...statusData };
+        })
+      );
+      setContacts(fetchedContacts);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ---------------------------
-   *  Common Row Selection Logic
-   * --------------------------- */
-  const handleSelect = (id: number, checked: boolean) => {
+  useEffect(() => {
+    fetchContacts();
+  }, []);
+
+  // Row selection handler
+  const handleSelect = (id: string, checked: boolean) => {
     setSelectedIds((prev) =>
       checked ? [...prev, id] : prev.filter((item) => item !== id)
     );
   };
 
-  /* ---------------------------
-   *   Dropdown Handlers
-   * --------------------------- */
-  const handleStatusChange = (id: number, newStatus: string) => {
-    setContacts((prev) =>
-      prev.map((contact) =>
-        contact.id === id ? { ...contact, status: newStatus } : contact
-      )
-    );
-  };
-
-  const handleMentorChange = (id: number, newMentor: string) => {
-    setContacts((prev) =>
-      prev.map((contact) =>
-        contact.id === id ? { ...contact, mentor: newMentor } : contact
-      )
-    );
-  };
-
-  /* ---------------------------
-   *   Done / Undo / Delete
-   * --------------------------- */
-  const handleMarkDone = () => {
-    setContacts((prev) => {
-      const updated = prev.map((contact) =>
-        selectedIds.includes(contact.id)
-          ? { ...contact, isDone: true, status: "Done" }
-          : contact
+  // Dropdown update handlers
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(firestore, "status", id), { status: newStatus });
+      setContacts((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
       );
-      // Move done rows to the bottom.
-      updated.sort((a, b) => {
-        if (a.isDone && !b.isDone) return 1;
-        if (!a.isDone && b.isDone) return -1;
-        return 0;
-      });
-      return updated;
-    });
-    setSelectedIds([]);
+    } catch (error) {
+      console.error("Error updating status:", error);
+    }
   };
 
-  const handleUndo = () => {
-    setContacts((prev) => {
-      const updated = prev.map((contact) =>
-        selectedIds.includes(contact.id) && contact.isDone
-          ? { ...contact, isDone: false, status: "Not Started" }
-          : contact
+  const handleMentorChange = async (id: string, newMentor: string) => {
+    try {
+      await updateDoc(doc(firestore, "status", id), { mentor: newMentor });
+      setContacts((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, mentor: newMentor } : c))
       );
-      // Move undone rows back to the top.
-      updated.sort((a, b) => {
-        if (a.isDone && !b.isDone) return 1;
-        if (!a.isDone && b.isDone) return -1;
-        return 0;
-      });
-      return updated;
-    });
-    setSelectedIds([]);
+    } catch (error) {
+      console.error("Error updating mentor:", error);
+    }
   };
 
-  const handleDelete = () => {
+  // Handlers for marking done/undo and deletion (unchanged)
+  const handleMarkDone = async () => {
+    try {
+      const updates = selectedIds.map(async (id) => {
+        await updateDoc(doc(firestore, "status", id), { isDone: true, status: "Done" });
+      });
+      await Promise.all(updates);
+      setContacts((prev) =>
+        prev.map((c) =>
+          selectedIds.includes(c.id) ? { ...c, isDone: true, status: "Done" } : c
+        )
+      );
+      setSelectedIds([]);
+    } catch (error) {
+      console.error("Error marking done:", error);
+    }
+  };
+
+  const handleUndo = async () => {
+    try {
+      const updates = selectedIds.map(async (id) => {
+        await updateDoc(doc(firestore, "status", id), { isDone: false, status: "Not Started" });
+      });
+      await Promise.all(updates);
+      setContacts((prev) =>
+        prev.map((c) =>
+          selectedIds.includes(c.id) ? { ...c, isDone: false, status: "Not Started" } : c
+        )
+      );
+      setSelectedIds([]);
+    } catch (error) {
+      console.error("Error undoing:", error);
+    }
+  };
+
+  const handleDelete = async () => {
     setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)));
     setSelectedIds([]);
   };
 
-  // Are the selected rows done or not?
-  const selectedContacts = contacts.filter((c) => selectedIds.includes(c.id));
-  const hasDoneSelected = selectedContacts.some((c) => c.isDone);
-  const hasNotDoneSelected = selectedContacts.some((c) => !c.isDone);
-
-  /* ---------------------------
-   *   Desktop: Truncated + Modal
-   * --------------------------- */
-  function renderSubjectDesktop(contact: Contact) {
+  // Render subject as clickable (opens modal with subject and description)
+  function renderSubjectDesktop(contact: ContactWithStatus) {
     const threshold = 15;
     const isLong = contact.subject.length > threshold;
-    const displayText = isLong
-      ? contact.subject.slice(0, threshold) + "..."
-      : contact.subject;
-
-    return isLong ? (
+    const displayText = isLong ? contact.subject.slice(0, threshold) + "..." : contact.subject;
+    return (
       <span
-        onClick={() => setPopupSubject(contact.subject)}
+        onClick={() =>
+          setPopupData({ type: "subject", subject: contact.subject, description: contact.description })
+        }
         className="cursor-pointer text-blue-600 hover:underline"
-        title="Click to view full text"
+        title="Click to view details"
       >
         {displayText}
       </span>
-    ) : (
-      <span>{contact.subject}</span>
     );
   }
 
-  /* ---------------------------
-   *   Mobile: Inline Toggle
-   * --------------------------- */
-  function renderSubjectMobile(contact: Contact) {
-    const threshold = 50;
-    const isLong = contact.subject.length > threshold;
-    const expanded = expandedSubjects[contact.id];
-    const displayText =
-      isLong && !expanded ? contact.subject.slice(0, threshold) + "..." : contact.subject;
-
-    return isLong ? (
+  // Render name as clickable (opens modal with name, email, phone)
+  function renderNameDesktop(contact: ContactWithStatus) {
+    return (
       <span
-        onClick={() => handleToggleSubject(contact.id)}
+        onClick={() =>
+          setPopupData({
+            type: "name",
+            name: contact.name + " " + (contact.surname || ""),
+            email: contact.email,
+            phone: contact.phone,
+          })
+        }
         className="cursor-pointer text-blue-600 hover:underline"
-        title={contact.subject}
+        title="Click to view details"
       >
-        {displayText}
+        {contact.name} {contact.surname}
       </span>
-    ) : (
-      <span>{contact.subject}</span>
     );
   }
 
-  // Filter contacts based on the selected filterStatus.
+  // Filter contacts based on status
   const filteredContacts = contacts.filter(
     (contact) => filterStatus === "All" || contact.status === filterStatus
   );
 
-  // Common dropdown classes.
+  // Common dropdown styling
   const dropdownClasses =
     "bg-white border border-gray-300 text-gray-700 py-1 px-2 pr-8 rounded leading-tight appearance-none focus:outline-none focus:ring focus:border-blue-500";
 
   return (
     <div className="max-w-7xl mx-auto p-4">
-      {/* Status Filter */}
+      {/* Filter */}
       <div className="mb-4 flex items-center space-x-2">
         <label className="font-medium text-sm">Filter by status:</label>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded leading-tight focus:outline-none focus:ring focus:border-blue-500"
+          className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded focus:outline-none focus:ring focus:border-blue-500"
         >
           <option value="All">All</option>
           {statusOptions.map((option) => (
@@ -228,28 +248,33 @@ export default function ContactTable() {
         </select>
       </div>
 
+      {/* Loading indicator */}
+      {loading && (
+        <div className="mb-4 text-center text-gray-700 dark:text-gray-300">Loading…</div>
+      )}
+
       {/* Action Buttons */}
       {selectedIds.length > 0 && (
         <div className="mb-4 flex space-x-2">
-          {hasNotDoneSelected && (
+          {selectedIds.some((id) => !contacts.find((c) => c.id === id)?.isDone) && (
             <button
               onClick={handleMarkDone}
-              className="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600 transition duration-200"
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition duration-200"
             >
               Done
             </button>
           )}
-          {hasDoneSelected && (
+          {selectedIds.some((id) => contacts.find((c) => c.id === id)?.isDone) && (
             <button
               onClick={handleUndo}
-              className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600 transition duration-200"
+              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition duration-200"
             >
               Undo
             </button>
           )}
           <button
             onClick={handleDelete}
-            className="px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600 transition duration-200"
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200"
           >
             Delete
           </button>
@@ -269,12 +294,12 @@ export default function ContactTable() {
                   type="checkbox"
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setSelectedIds(contacts.map((c) => c.id));
+                      setSelectedIds(filteredContacts.map((c) => c.id));
                     } else {
                       setSelectedIds([]);
                     }
                   }}
-                  checked={selectedIds.length === contacts.length && contacts.length > 0}
+                  checked={selectedIds.length === filteredContacts.length && filteredContacts.length > 0}
                   className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                 />
               </TableCell>
@@ -306,19 +331,7 @@ export default function ContactTable() {
                 isHeader
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Topic
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Number
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Email
+                Created Date
               </TableCell>
             </TableRow>
           </TableHeader>
@@ -338,7 +351,9 @@ export default function ContactTable() {
                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                   />
                 </TableCell>
-                <TableCell className="px-4 py-3 whitespace-nowrap">{contact.name}</TableCell>
+                <TableCell className="px-4 py-3 whitespace-nowrap">
+                  {renderNameDesktop(contact)}
+                </TableCell>
                 <TableCell className="px-4 py-3 whitespace-nowrap">
                   {renderSubjectDesktop(contact)}
                 </TableCell>
@@ -368,16 +383,18 @@ export default function ContactTable() {
                     ))}
                   </select>
                 </TableCell>
-                <TableCell className="px-4 py-3 whitespace-nowrap">{contact.topic}</TableCell>
-                <TableCell className="px-4 py-3 whitespace-nowrap">{contact.phone}</TableCell>
-                <TableCell className="px-4 py-3 whitespace-nowrap">{contact.email}</TableCell>
+                <TableCell className="px-4 py-3 whitespace-nowrap">
+                  {contact.createdAt?.toDate
+                    ? contact.createdAt.toDate().toLocaleString()
+                    : contact.createdAt}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
 
-      {/* Mobile/Card Version (unchanged) */}
+      {/* Mobile/Card Version */}
       <div className="sm:hidden space-y-4">
         {filteredContacts.map((contact) => (
           <div
@@ -387,7 +404,9 @@ export default function ContactTable() {
             }`}
           >
             <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold">{contact.name}</span>
+              <span className="text-lg font-semibold">
+                {contact.name} {contact.surname}
+              </span>
               <input
                 type="checkbox"
                 checked={selectedIds.includes(contact.id)}
@@ -397,23 +416,52 @@ export default function ContactTable() {
             </div>
             <div className="mt-2 text-sm">
               <p>
-                <span className="font-medium">Email:</span> {contact.email}
+                <span
+                  onClick={() =>
+                    setPopupData({
+                      type: "name",
+                      name: contact.name + " " + (contact.surname || ""),
+                      email: contact.email,
+                      phone: contact.phone,
+                    })
+                  }
+                  className="cursor-pointer text-blue-600 hover:underline"
+                >
+                  {contact.name} {contact.surname}
+                </span>
               </p>
               <p>
-                <span className="font-medium">Phone:</span> {contact.phone}
+                <span
+                  onClick={() =>
+                    setPopupData({
+                      type: "subject",
+                      subject: contact.subject,
+                      description: contact.description,
+                    })
+                  }
+                  className="cursor-pointer text-blue-600 hover:underline"
+                >
+                  {contact.subject.length > 50
+                    ? contact.subject.slice(0, 50) + "..."
+                    : contact.subject}
+                </span>
               </p>
               <p>
                 <span className="font-medium">Topic:</span> {contact.topic}
               </p>
               <p>
-                <span className="font-medium">Subject:</span>{" "}
-                {renderSubjectMobile(contact)}
+                <span className="font-medium">Created:</span>{" "}
+                {contact.createdAt?.toDate
+                  ? contact.createdAt.toDate().toLocaleString()
+                  : contact.createdAt}
               </p>
               <div className="mt-2">
                 <label className="font-medium text-sm">Status: </label>
                 <select
                   value={contact.status}
-                  onChange={(e) => handleStatusChange(contact.id, e.target.value)}
+                  onChange={(e) =>
+                    handleStatusChange(contact.id, e.target.value)
+                  }
                   className={`${dropdownClasses} ml-2`}
                 >
                   {statusOptions.map((option) => (
@@ -427,7 +475,9 @@ export default function ContactTable() {
                 <label className="font-medium text-sm">Mentor: </label>
                 <select
                   value={contact.mentor}
-                  onChange={(e) => handleMentorChange(contact.id, e.target.value)}
+                  onChange={(e) =>
+                    handleMentorChange(contact.id, e.target.value)
+                  }
                   className={`${dropdownClasses} ml-2`}
                 >
                   {mentorOptions.map((option) => (
@@ -442,21 +492,51 @@ export default function ContactTable() {
         ))}
       </div>
 
-      {/* Desktop Subject Popup Modal */}
-      {popupSubject && (
+      {/* Popup Modal */}
+      {popupData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => setPopupSubject(null)}
+            onClick={() => setPopupData(null)}
           />
           {/* Modal Card */}
           <div className="relative bg-white p-6 rounded shadow max-w-md w-full mx-2">
-            <h2 className="text-lg font-semibold mb-4">Full Subject</h2>
-            <p className="mb-4">{popupSubject}</p>
+            {popupData.type === "subject" && (
+              <>
+                <h2 className="text-lg font-semibold mb-4">Subject Details</h2>
+                <p className="mb-2">
+                  <span className="font-medium">Subject: </span>
+                  {popupData.subject}
+                </p>
+                <p className="mb-4">
+                  <span className="font-medium">Description: </span>
+                  {popupData.description}
+                </p>
+              </>
+            )}
+            {popupData.type === "name" && (
+              <>
+                <h2 className="text-lg font-semibold mb-4">Contact Details</h2>
+                <p className="mb-2">
+                  <span className="font-medium">Name: </span>
+                  {popupData.name}
+                </p>
+                {popupData.email && (
+                  <p className="mb-2">
+                    <span className="font-medium">Email: </span>
+                    {popupData.email}
+                  </p>
+                )}
+                <p className="mb-4">
+                  <span className="font-medium">Phone: </span>
+                  {popupData.phone}
+                </p>
+              </>
+            )}
             <button
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-              onClick={() => setPopupSubject(null)}
+              onClick={() => setPopupData(null)}
             >
               Close
             </button>
@@ -467,17 +547,17 @@ export default function ContactTable() {
       {/* Custom scrollbar styling */}
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          height: 10px; /* Adjust thickness */
+          height: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1; /* Track color */
+          background: #f1f1f1;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #bbb; /* Thumb color */
-          border-radius: 9999px; /* Rounded corners */
+          background-color: #bbb;
+          border-radius: 9999px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: #999; /* Hover color */
+          background-color: #999;
         }
       `}</style>
     </div>
