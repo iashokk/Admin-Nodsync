@@ -5,7 +5,6 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
-import { ExpenseTotalsProvider } from "@/context/ExpenseTotalsContext";
 
 export default function AdminLayout({
   children,
@@ -24,7 +23,7 @@ export default function AdminLayout({
   return (
     
     <div className="min-h-screen xl:flex">
-      <ExpenseTotalsProvider>
+     
       {/* Sidebar and Backdrop */}
       <AppSidebar />
       <Backdrop />
@@ -39,7 +38,7 @@ export default function AdminLayout({
           </div>
         
       </div>
-      </ExpenseTotalsProvider>
+      
     </div>
     
   );

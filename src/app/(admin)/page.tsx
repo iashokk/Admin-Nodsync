@@ -5,11 +5,10 @@ import UsersSignedup from "@/components/ecommerce/UsersSignedup";
 import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 import DailyViews from "@/components/ecommerce/DailyViewsChart";
 import LogTable from "@/components/tables/LogTable";
-import { useExpenseTotals } from "@/context/ExpenseTotalsContext";
 
 
 export default function Dashboard() {
-  const { totalIncome, totalExpense, netProfit } = useExpenseTotals();
+  
 
   return (
     <div>
@@ -21,9 +20,6 @@ export default function Dashboard() {
         <div className="col-span-12 xl:col-span-5 gap-4 md:gap-6">
           <div className="col-span-12 space-y-6 xl:col-span-7">
             <RevenueDetails
-              investment={totalExpense}
-              revenue={totalIncome}
-              netProfit={netProfit}
             />
           </div>
         </div>
