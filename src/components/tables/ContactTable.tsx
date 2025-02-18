@@ -87,6 +87,7 @@ export default function ContactTable() {
       const fetchedContacts: ContactWithStatus[] = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const contactData = docSnap.data() as Contact;
+          const { id: _ignored, ...contactRest } = contactData; // Remove the id from contactData
           const id = docSnap.id;
           const statusRef = doc(firestore, "status", id);
           const statusSnap = await getDoc(statusRef);
@@ -97,7 +98,7 @@ export default function ContactTable() {
           } else {
             statusData = statusSnap.data() as StatusData;
           }
-          return { id, ...contactData, ...statusData };
+          return { id, ...contactRest, ...statusData };
         })
       );
       setContacts(fetchedContacts);
