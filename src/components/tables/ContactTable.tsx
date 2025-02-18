@@ -17,7 +17,11 @@ import {
   doc,
   setDoc,
   updateDoc,
+  limit,
+  QueryDocumentSnapshot,
+  DocumentData,
   Timestamp,
+  startAfter,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
@@ -77,17 +81,37 @@ export default function ContactTable() {
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
 
-  // Fetch contacts and merge with status from Firestore
-  const fetchContacts = async () => {
+  // New state for pagination
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  const batchSize = 50; // Limiting FireStore calls
+
+  const fetchContacts = async (loadMore = false) => {
     setLoading(true);
     try {
       const contactsCollection = collection(firestore, "contacts");
-      const q = query(contactsCollection, orderBy("createdAt", "desc"));
+      let q;
+      if (loadMore && lastDoc) {
+        q = query(
+          contactsCollection,
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(batchSize + 1) // fetch one extra
+        );
+      } else {
+        q = query(contactsCollection, orderBy("createdAt", "desc"), limit(batchSize + 1));
+      }
       const snapshot = await getDocs(q);
+      const docs = snapshot.docs;
+      const moreAvailable = docs.length > batchSize;
+      // Use only the first batchSize docs for display.
+      const docsToUse = moreAvailable ? docs.slice(0, batchSize) : docs;
+      
       const fetchedContacts: ContactWithStatus[] = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
+        docsToUse.map(async (docSnap) => {
           const contactData = docSnap.data() as Contact;
-          const { id: _ignored, ...contactRest } = contactData; // Remove the id from contactData
+          const { id: _ignored, ...contactRest } = contactData; // Remove duplicate id
           const id = docSnap.id;
           const statusRef = doc(firestore, "status", id);
           const statusSnap = await getDoc(statusRef);
@@ -101,13 +125,26 @@ export default function ContactTable() {
           return { id, ...contactRest, ...statusData };
         })
       );
-      setContacts(fetchedContacts);
+
+      if (loadMore) {
+        setContacts((prev) => [...prev, ...fetchedContacts]);
+      } else {
+        setContacts(fetchedContacts);
+      }
+      // Update lastDoc only if we fetched something.
+      if (docsToUse.length > 0) {
+        setLastDoc(docsToUse[docsToUse.length - 1]);
+      } else {
+        setLastDoc(null);
+      }
+      setHasMore(moreAvailable);
     } catch (error) {
       console.error("Error fetching contacts:", error);
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchContacts();
@@ -393,6 +430,17 @@ export default function ContactTable() {
         {loading && (
           <div className="py-3 text-center text-gray-700 dark:text-gray-300">
             Loading…
+          </div>
+        )}
+        {/* Load More button */}
+        {!loading && hasMore && (
+          <div className="py-3 text-center">
+            <button
+              onClick={() => fetchContacts(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+            >
+              Load More
+            </button>
           </div>
         )}
       </div>
