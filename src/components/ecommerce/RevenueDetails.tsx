@@ -11,12 +11,12 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 });
 
 export default function RevenueDetails() {
-  // Static investment value remains unchanged
-  const investment = 2000;
+  // Instead of static investment, we now fetch it from Firestore (total expense)
+  const [investment, setInvestment] = useState<number>(0);
   const [revenue, setRevenue] = useState<number>(0);
   const [netProfit, setNetProfit] = useState<number>(0);
 
-  // Fetch revenue from "income" collection now
+  // Fetch totals from Firestore: total income and total expense (used as investment)
   useEffect(() => {
     const fetchTotals = async () => {
       try {
@@ -30,7 +30,7 @@ export default function RevenueDetails() {
         }, 0);
         setRevenue(totalIncome);
   
-        // Fetch total expense
+        // Fetch total expense (used as investment)
         const expensesCollection = collection(firestore, "expense");
         const expenseQuery = query(expensesCollection, orderBy("createdAt", "desc"));
         const expenseSnapshot = await getDocs(expenseQuery);
@@ -38,8 +38,9 @@ export default function RevenueDetails() {
           const data = docSnap.data();
           return sum + Number(data.amount);
         }, 0);
+        setInvestment(totalExpense);
   
-        // Compute net profit (income - expense)
+        // Compute net profit: revenue minus investment
         setNetProfit(totalIncome - totalExpense);
       } catch (error) {
         console.error("Error fetching totals:", error);
@@ -47,8 +48,8 @@ export default function RevenueDetails() {
     };
   
     fetchTotals();
-  }, [investment]);
-
+  }, []);
+  
   const series = [revenue];
   const options: ApexOptions = {
     colors: ["#465FFF"],
