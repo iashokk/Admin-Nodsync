@@ -1,8 +1,9 @@
 "use client";
-// import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
@@ -10,7 +11,33 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 });
 
 export default function RevenueDetails() {
-  const series = [99.55];
+  // Static investment value remains unchanged
+  const investment = 2000;
+  const [revenue, setRevenue] = useState<number>(0);
+  const [netProfit, setNetProfit] = useState<number>(0);
+
+  // Fetch revenue from "income" collection now
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      try {
+        const incomesCollection = collection(firestore, "income");
+        const q = query(incomesCollection, orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        const total = snapshot.docs.reduce((sum, docSnap) => {
+          const data = docSnap.data();
+          return sum + Number(data.amount);
+        }, 0);
+        setRevenue(total);
+        // setNetProfit(total - investment); // Not subracting it for now
+        setNetProfit(total);
+      } catch (error) {
+        console.error("Error fetching revenue:", error);
+      }
+    };
+    fetchRevenue();
+  }, [investment]);
+
+  const series = [revenue];
   const options: ApexOptions = {
     colors: ["#465FFF"],
     chart: {
@@ -31,7 +58,7 @@ export default function RevenueDetails() {
         track: {
           background: "#E4E7EC",
           strokeWidth: "100%",
-          margin: 5, // margin is in pixels
+          margin: 5,
         },
         dataLabels: {
           name: {
@@ -56,18 +83,8 @@ export default function RevenueDetails() {
     stroke: {
       lineCap: "round",
     },
-    labels: ["Progress"],
+    labels: ["Revenue"],
   };
-
-  const [isOpen, setIsOpen] = useState(false);
-
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
-
-  function closeDropdown() {
-    setIsOpen(false);
-  }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -87,7 +104,7 @@ export default function RevenueDetails() {
             Investment
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            ₹ 2000
+            ₹ {investment.toFixed(2)}
           </p>
         </div>
 
@@ -98,7 +115,7 @@ export default function RevenueDetails() {
             Revenue
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            ₹ 3000
+            ₹ {revenue.toFixed(2)}
           </p>
         </div>
 
@@ -109,7 +126,7 @@ export default function RevenueDetails() {
             Net Profit
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            ₹ 1000
+            ₹ {netProfit.toFixed(2)}
           </p>
         </div>
       </div>
