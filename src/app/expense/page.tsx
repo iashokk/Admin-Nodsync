@@ -1,7 +1,21 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Timestamp } from "firebase/firestore";
-import { collection, addDoc, query, orderBy, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  updateDoc,
+  limit,
+  QueryDocumentSnapshot,
+  DocumentData,
+  Timestamp,
+  startAfter,
+  addDoc,
+} from "firebase/firestore";
 import { firestore, auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 
@@ -15,7 +29,7 @@ interface Entry {
 
 export default function ExpenseTracker() {
   const [user] = useAuthState(auth);
-
+  
   // Input states for adding new entries
   const [incomeDescription, setIncomeDescription] = useState("");
   const [incomeAmount, setIncomeAmount] = useState("");
@@ -30,44 +44,101 @@ export default function ExpenseTracker() {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
 
-  // Fetch incomes from Firestore
-  const fetchIncomes = async () => {
+  // For pagination, we'll load 5 at a time
+  const batchSize = 5;
+  const [lastIncomeDoc, setLastIncomeDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [incomeHasMore, setIncomeHasMore] = useState(true);
+  const [lastExpenseDoc, setLastExpenseDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [expenseHasMore, setExpenseHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch incomes from Firestore with pagination
+  const fetchIncomes = async (loadMore = false) => {
+    setLoading(true);
     try {
       const incomesCollection = collection(firestore, "income");
-      const q = query(incomesCollection, orderBy("createdAt", "desc"));
+      let q;
+      if (loadMore && lastIncomeDoc) {
+        q = query(
+          incomesCollection,
+          orderBy("createdAt", "desc"),
+          startAfter(lastIncomeDoc),
+          limit(batchSize + 1)
+        );
+      } else {
+        q = query(incomesCollection, orderBy("createdAt", "desc"), limit(batchSize + 1));
+      }
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const docs = snapshot.docs;
+      const moreAvailable = docs.length > batchSize;
+      const docsToUse = moreAvailable ? docs.slice(0, batchSize) : docs;
+      const fetched: Entry[] = docsToUse.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       })) as Entry[];
-      setIncomes(data);
+      if (loadMore) {
+        setIncomes((prev) => [...prev, ...fetched]);
+      } else {
+        setIncomes(fetched);
+      }
+      if (docsToUse.length > 0) {
+        setLastIncomeDoc(docsToUse[docsToUse.length - 1]);
+      }
+      setIncomeHasMore(moreAvailable);
     } catch (error) {
       console.error("Error fetching incomes:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Fetch expenses from Firestore
-  const fetchExpenses = async () => {
+  // Fetch expenses from Firestore with pagination
+  const fetchExpenses = async (loadMore = false) => {
+    setLoading(true);
     try {
       const expensesCollection = collection(firestore, "expense");
-      const q = query(expensesCollection, orderBy("createdAt", "desc"));
+      let q;
+      if (loadMore && lastExpenseDoc) {
+        q = query(
+          expensesCollection,
+          orderBy("createdAt", "desc"),
+          startAfter(lastExpenseDoc),
+          limit(batchSize + 1)
+        );
+      } else {
+        q = query(expensesCollection, orderBy("createdAt", "desc"), limit(batchSize + 1));
+      }
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const docs = snapshot.docs;
+      const moreAvailable = docs.length > batchSize;
+      const docsToUse = moreAvailable ? docs.slice(0, batchSize) : docs;
+      const fetched: Entry[] = docsToUse.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       })) as Entry[];
-      setExpenses(data);
+      if (loadMore) {
+        setExpenses((prev) => [...prev, ...fetched]);
+      } else {
+        setExpenses(fetched);
+      }
+      if (docsToUse.length > 0) {
+        setLastExpenseDoc(docsToUse[docsToUse.length - 1]);
+      }
+      setExpenseHasMore(moreAvailable);
     } catch (error) {
       console.error("Error fetching expenses:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Initial fetch
   useEffect(() => {
     fetchIncomes();
     fetchExpenses();
   }, []);
 
-  // Add new income document to Firestore
+  // Add new income to Firestore
   const addIncome = async () => {
     if (!incomeDescription || !incomeAmount || !user) return;
     try {
@@ -75,9 +146,10 @@ export default function ExpenseTracker() {
         description: incomeDescription,
         amount: parseFloat(incomeAmount),
         createdAt: Timestamp.now(),
-        userEmail: user.email,
+        userEmail: user?.email || "",
       };
       const docRef = await addDoc(collection(firestore, "income"), newIncome);
+      // Prepend new income
       setIncomes((prev) => [{ id: docRef.id, ...newIncome }, ...prev]);
       setIncomeDescription("");
       setIncomeAmount("");
@@ -86,7 +158,7 @@ export default function ExpenseTracker() {
     }
   };
 
-  // Add new expense document to Firestore
+  // Add new expense to Firestore
   const addExpense = async () => {
     if (!expenseDescription || !expenseAmount || !user) return;
     try {
@@ -94,7 +166,7 @@ export default function ExpenseTracker() {
         description: expenseDescription,
         amount: parseFloat(expenseAmount),
         createdAt: Timestamp.now(),
-        userEmail: user.email,
+        userEmail: user?.email || "",
       };
       const docRef = await addDoc(collection(firestore, "expense"), newExpense);
       setExpenses((prev) => [{ id: docRef.id, ...newExpense }, ...prev]);
@@ -105,14 +177,14 @@ export default function ExpenseTracker() {
     }
   };
 
-  // Totals calculation with two-decimal precision
+  // Totals calculation
   const totalIncome = incomes.reduce((sum, entry) => sum + entry.amount, 0);
   const totalExpense = expenses.reduce((sum, entry) => sum + entry.amount, 0);
   const netProfit = totalIncome - totalExpense;
 
   return (
     <div className="max-w-7xl mx-auto p-4">
-      {/* Page Title */}
+      {/* Title */}
       <h1 className="text-2xl font-bold mb-4 text-center text-gray-800 dark:text-white">
         Expense Tracker
       </h1>
@@ -146,9 +218,7 @@ export default function ExpenseTracker() {
             </button>
           </div>
           <div>
-            <h3 className="font-semibold text-gray-800 dark:text-white">
-              Income List
-            </h3>
+            <h3 className="font-semibold text-gray-800 dark:text-white">Income List</h3>
             {incomes.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No income added yet.</p>
             ) : (
@@ -193,9 +263,7 @@ export default function ExpenseTracker() {
             </button>
           </div>
           <div>
-            <h3 className="font-semibold text-gray-800 dark:text-white">
-              Expense List
-            </h3>
+            <h3 className="font-semibold text-gray-800 dark:text-white">Expense List</h3>
             {expenses.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No expense added yet.</p>
             ) : (
@@ -239,16 +307,16 @@ export default function ExpenseTracker() {
               <table className="w-full table-auto">
                 <thead className="bg-gray-100 dark:bg-gray-800">
                   <tr>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Description
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Amount
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Created At
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       User Email
                     </th>
                   </tr>
@@ -256,17 +324,28 @@ export default function ExpenseTracker() {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {incomes.map((income) => (
                     <tr key={income.id}>
-                      <td className="py-2 px-4">{income.description}</td>
-                      <td className="py-2 px-4">₹ {income.amount.toFixed(2)}</td>
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">{income.description}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">₹ {income.amount.toFixed(2)}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">
                         {income.createdAt.toDate().toLocaleString()}
                       </td>
-                      <td className="py-2 px-4">{income.userEmail}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">{income.userEmail}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {/* Load More button for incomes */}
+            {!loading && incomeHasMore && (
+              <div className="py-3 text-center">
+                <button
+                  onClick={() => fetchIncomes(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -290,16 +369,16 @@ export default function ExpenseTracker() {
               <table className="w-full table-auto">
                 <thead className="bg-gray-100 dark:bg-gray-800">
                   <tr>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Description
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Amount
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Created At
                     </th>
-                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       User Email
                     </th>
                   </tr>
@@ -307,17 +386,28 @@ export default function ExpenseTracker() {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {expenses.map((expense) => (
                     <tr key={expense.id}>
-                      <td className="py-2 px-4">{expense.description}</td>
-                      <td className="py-2 px-4">₹ {expense.amount.toFixed(2)}</td>
-                      <td className="py-2 px-4">
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">{expense.description}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">₹ {expense.amount.toFixed(2)}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">
                         {expense.createdAt.toDate().toLocaleString()}
                       </td>
-                      <td className="py-2 px-4">{expense.userEmail}</td>
+                      <td className="py-2 px-4 text-gray-800 dark:text-white">{expense.userEmail}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {/* Load More button for expenses */}
+            {!loading && expenseHasMore && (
+              <div className="py-3 text-center">
+                <button
+                  onClick={() => fetchExpenses(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
