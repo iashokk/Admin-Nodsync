@@ -18,23 +18,35 @@ export default function RevenueDetails() {
 
   // Fetch revenue from "income" collection now
   useEffect(() => {
-    const fetchRevenue = async () => {
+    const fetchTotals = async () => {
       try {
+        // Fetch total income
         const incomesCollection = collection(firestore, "income");
-        const q = query(incomesCollection, orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
-        const total = snapshot.docs.reduce((sum, docSnap) => {
+        const incomeQuery = query(incomesCollection, orderBy("createdAt", "desc"));
+        const incomeSnapshot = await getDocs(incomeQuery);
+        const totalIncome = incomeSnapshot.docs.reduce((sum, docSnap) => {
           const data = docSnap.data();
           return sum + Number(data.amount);
         }, 0);
-        setRevenue(total);
-        // setNetProfit(total - investment); // Not subracting it for now
-        setNetProfit(total);
+        setRevenue(totalIncome);
+  
+        // Fetch total expense
+        const expensesCollection = collection(firestore, "expense");
+        const expenseQuery = query(expensesCollection, orderBy("createdAt", "desc"));
+        const expenseSnapshot = await getDocs(expenseQuery);
+        const totalExpense = expenseSnapshot.docs.reduce((sum, docSnap) => {
+          const data = docSnap.data();
+          return sum + Number(data.amount);
+        }, 0);
+  
+        // Compute net profit (income - expense)
+        setNetProfit(totalIncome - totalExpense);
       } catch (error) {
-        console.error("Error fetching revenue:", error);
+        console.error("Error fetching totals:", error);
       }
     };
-    fetchRevenue();
+  
+    fetchTotals();
   }, [investment]);
 
   const series = [revenue];
