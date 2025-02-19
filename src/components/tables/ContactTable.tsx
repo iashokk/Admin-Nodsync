@@ -74,6 +74,18 @@ interface PopupData {
   number?: string;
 }
 
+// Helper function to return name color class based on status
+function getNameColor(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "not started") return "text-blue-600 dark:text-blue-400";
+  if (s === "awaiting response") return "text-orange-500 dark:text-orange-400";
+  if (s === "cancelled") return "text-gray-500 dark:text-gray-400";
+  if (s === "confirmed") return "text-yellow-500 dark:text-yellow-400";
+  if (s === "in progress") return "text-green-500 dark:text-green-400";
+  if (s === "done") return "text-purple-500 dark:text-purple-400";
+  return "text-blue-600 dark:text-blue-400"; // default
+}
+
 export default function ContactTable() {
   const [contacts, setContacts] = useState<ContactWithStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -84,8 +96,7 @@ export default function ContactTable() {
   // New state for pagination
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
-
-  const batchSize = 50; // Limiting FireStore calls
+  const batchSize = 50; // Limiting Firestore calls
 
   const fetchContacts = async (loadMore = false) => {
     setLoading(true);
@@ -131,7 +142,6 @@ export default function ContactTable() {
       } else {
         setContacts(fetchedContacts);
       }
-      // Update lastDoc only if we fetched something.
       if (docsToUse.length > 0) {
         setLastDoc(docsToUse[docsToUse.length - 1]);
       } else {
@@ -144,7 +154,6 @@ export default function ContactTable() {
       setLoading(false);
     }
   };
-
 
   useEffect(() => {
     fetchContacts();
@@ -237,7 +246,7 @@ export default function ContactTable() {
     );
   }
 
-  // Render name as clickable (opens modal with name, email and number)
+  // Render name as clickable (opens modal with name, email and number) using dynamic color based on status
   function renderNameDesktop(contact: ContactWithStatus) {
     return (
       <span
@@ -249,7 +258,7 @@ export default function ContactTable() {
             number: contact.number,
           })
         }
-        className="cursor-pointer text-blue-600 hover:underline"
+        className={`cursor-pointer hover:underline ${getNameColor(contact.status)}`}
         title="Click to view details"
       >
         {contact.name} {contact.surname}
@@ -374,7 +383,7 @@ export default function ContactTable() {
               <TableRow
                 key={contact.id}
                 className={`transition-colors duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                  contact.isDone ? "line-through text-gray-400" : ""
+                  (contact.isDone || contact.status.toLowerCase() === "cancelled") ? "line-through text-gray-400" : ""
                 }`}
               >
                 <TableCell className="px-4 py-3 whitespace-nowrap">
@@ -451,7 +460,7 @@ export default function ContactTable() {
           <div
             key={contact.id}
             className={`p-4 border rounded shadow bg-white transition-colors duration-200 ${
-              contact.isDone ? "line-through text-gray-400" : ""
+              (contact.isDone || contact.status.toLowerCase() === "cancelled") ? "line-through text-gray-400" : ""
             } dark:bg-gray-800 dark:border-gray-700`}
           >
             <div className="flex justify-between items-center">
