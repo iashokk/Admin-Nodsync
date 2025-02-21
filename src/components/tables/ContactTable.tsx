@@ -57,6 +57,7 @@ const DEFAULT_STATUS: StatusData = {
 const statusOptions = [
   "Not Started",
   "Awaiting Response",
+  "Unresponsive",
   "In Progress",
   "Confirmed",
   "Done",
@@ -79,6 +80,7 @@ function getNameColor(status: string): string {
   const s = status.toLowerCase();
   if (s === "not started") return "text-blue-600 dark:text-blue-400";
   if (s === "awaiting response") return "text-orange-500 dark:text-orange-400";
+  if (s === "unresponsive") return "text-red-500 dark:text-red-400";
   if (s === "cancelled") return "text-gray-500 dark:text-gray-400";
   if (s === "confirmed") return "text-yellow-500 dark:text-yellow-400";
   if (s === "in progress") return "text-green-500 dark:text-green-400";
