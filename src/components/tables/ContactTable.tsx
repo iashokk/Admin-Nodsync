@@ -17,6 +17,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   limit,
   QueryDocumentSnapshot,
   DocumentData,
@@ -24,6 +25,8 @@ import {
   startAfter,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
+import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon } from "@/icons";
+import Badge from "../ui/badge/Badge";
 
 // Define interfaces for contacts and status
 interface Contact {
@@ -95,10 +98,14 @@ export default function ContactTable() {
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
 
-  // New state for pagination
+  // Pagination state for active contacts
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const batchSize = 50; // Limiting Firestore calls
+
+  // State for deleted contacts modal
+  const [showDeletedModal, setShowDeletedModal] = useState<boolean>(false);
+  const [deletedContacts, setDeletedContacts] = useState<ContactWithStatus[]>([]);
 
   const fetchContacts = async (loadMore = false) => {
     setLoading(true);
@@ -160,6 +167,23 @@ export default function ContactTable() {
   useEffect(() => {
     fetchContacts();
   }, []);
+
+  // Fetch deleted contacts from "deletedContacts" collection
+  const fetchDeletedContacts = async () => {
+    try {
+      const deletedRef = collection(firestore, "deletedContacts");
+      const q = query(deletedRef, orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs;
+      const data: ContactWithStatus[] = docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as ContactWithStatus[];
+      setDeletedContacts(data);
+    } catch (error) {
+      console.error("Error fetching deleted contacts:", error);
+    }
+  };
 
   // Row selection handler
   const handleSelect = (id: string, checked: boolean) => {
@@ -225,9 +249,27 @@ export default function ContactTable() {
     }
   };
 
+  // Delete: first move contact data to "deletedContacts", then delete from "contacts" and "status"
   const handleDelete = async () => {
-    setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)));
-    setSelectedIds([]);
+    try {
+      await Promise.all(
+        selectedIds.map(async (id) => {
+          const contact = contacts.find((c) => c.id === id);
+          if (contact) {
+            // Save to "deletedContacts"
+            await setDoc(doc(firestore, "deletedContacts", id), contact);
+            // Delete from "contacts" and "status"
+            await deleteDoc(doc(firestore, "contacts", id));
+            await deleteDoc(doc(firestore, "status", id));
+          }
+        })
+      );
+      // Remove deleted contacts from state
+      setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)));
+      setSelectedIds([]);
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+    }
   };
 
   // Render subject as clickable (opens modal with subject and description)
@@ -279,23 +321,34 @@ export default function ContactTable() {
 
   return (
     <div className="max-w-7xl mx-auto p-4">
-      {/* Filter */}
-      <div className="mb-4 flex items-center space-x-2">
-        <label className="font-medium text-sm text-gray-800 dark:text-white/90">
-          Filter by status:
-        </label>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded focus:outline-none focus:ring focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+      {/* Filter + View Deleted */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <label className="font-medium text-sm text-gray-800 dark:text-white/90">
+            Filter by status:
+          </label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="bg-white border border-gray-300 text-gray-700 py-1 px-2 rounded focus:outline-none focus:ring focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          >
+            <option value="All">All</option>
+            {statusOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={async () => {
+            await fetchDeletedContacts();
+            setShowDeletedModal(true);
+          }}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
         >
-          <option value="All">All</option>
-          {statusOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+          View Deleted
+        </button>
       </div>
 
       {/* Action Buttons */}
@@ -348,34 +401,19 @@ export default function ContactTable() {
                   className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                 />
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
-              >
+              <TableCell className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 Name
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
-              >
+              <TableCell className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 Subject
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
-              >
+              <TableCell className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 Status
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
-              >
+              <TableCell className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 Mentor
               </TableCell>
-              <TableCell
-                isHeader
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
-              >
+              <TableCell className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 Created Date
               </TableCell>
             </TableRow>
@@ -385,7 +423,7 @@ export default function ContactTable() {
               <TableRow
                 key={contact.id}
                 className={`transition-colors duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                  (contact.isDone || contact.status.toLowerCase() === "cancelled") ? "line-through text-gray-400" : ""
+                  contact.status.toLowerCase() === "cancelled" ? "line-through text-gray-400" : ""
                 }`}
               >
                 <TableCell className="px-4 py-3 whitespace-nowrap">
@@ -437,13 +475,11 @@ export default function ContactTable() {
             ))}
           </TableBody>
         </Table>
-        {/* Loading indicator below the table */}
         {loading && (
           <div className="py-3 text-center text-gray-700 dark:text-gray-300">
             Loading…
           </div>
         )}
-        {/* Load More button */}
         {!loading && hasMore && (
           <div className="py-3 text-center">
             <button
@@ -462,7 +498,7 @@ export default function ContactTable() {
           <div
             key={contact.id}
             className={`p-4 border rounded shadow bg-white transition-colors duration-200 ${
-              (contact.isDone || contact.status.toLowerCase() === "cancelled") ? "line-through text-gray-400" : ""
+              contact.status.toLowerCase() === "cancelled" ? "line-through text-gray-400" : ""
             } dark:bg-gray-800 dark:border-gray-700`}
           >
             <div className="flex justify-between items-center">
@@ -554,7 +590,7 @@ export default function ContactTable() {
         ))}
       </div>
 
-      {/* Popup Modal */}
+      {/* Popup Modal for contact details */}
       {popupData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
@@ -608,6 +644,56 @@ export default function ContactTable() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Modal for deleted contacts */}
+      {showDeletedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-3xl rounded-xl bg-white dark:bg-gray-900 p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                Deleted Contacts
+              </h3>
+              <button
+                onClick={() => setShowDeletedModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-4 max-h-[400px] overflow-y-auto">
+              <table className="w-full table-auto">
+                <thead className="bg-gray-100 dark:bg-gray-800">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
+                      Name
+                    </th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
+                      Subject
+                    </th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
+                      Deleted At
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {deletedContacts.map((contact) => (
+                    <tr key={contact.id} className="text-gray-500">
+                      <td className="py-2 px-4">{contact.name} {contact.surname}</td>
+                      <td className="py-2 px-4">{contact.subject}</td>
+                      <td className="py-2 px-4">
+                        {contact.createdAt?.toDate
+                          ? contact.createdAt.toDate().toLocaleString()
+                          : String(contact.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Optionally, add a "Load More" if needed */}
           </div>
         </div>
       )}
