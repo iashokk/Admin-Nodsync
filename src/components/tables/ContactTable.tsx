@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import Image from "next/image";
 import {
   collection,
   query,
@@ -24,9 +23,8 @@ import {
   Timestamp,
   startAfter,
 } from "firebase/firestore";
-import { firestore } from "@/lib/firebase";
-import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon } from "@/icons";
-import Badge from "../ui/badge/Badge";
+import { firestore, auth } from "@/lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 
 // Define interfaces for contacts and status
 interface Contact {
@@ -49,6 +47,11 @@ interface StatusData {
 }
 
 type ContactWithStatus = Contact & StatusData;
+
+// Extend ContactWithStatus for deleted contacts to include deletedBy field
+interface DeletedContact extends ContactWithStatus {
+  deletedBy: string;
+}
 
 const DEFAULT_STATUS: StatusData = {
   isDone: false,
@@ -98,14 +101,16 @@ export default function ContactTable() {
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
 
-  // Pagination state for active contacts
+  // New state for pagination
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const batchSize = 50; // Limiting Firestore calls
 
   // State for deleted contacts modal
   const [showDeletedModal, setShowDeletedModal] = useState<boolean>(false);
-  const [deletedContacts, setDeletedContacts] = useState<ContactWithStatus[]>([]);
+  const [deletedContacts, setDeletedContacts] = useState<DeletedContact[]>([]);
+
+  const [user] = useAuthState(auth);
 
   const fetchContacts = async (loadMore = false) => {
     setLoading(true);
@@ -175,10 +180,10 @@ export default function ContactTable() {
       const q = query(deletedRef, orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
       const docs = snapshot.docs;
-      const data: ContactWithStatus[] = docs.map((docSnap) => ({
+      const data: DeletedContact[] = docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
-      })) as ContactWithStatus[];
+      })) as DeletedContact[];
       setDeletedContacts(data);
     } catch (error) {
       console.error("Error fetching deleted contacts:", error);
@@ -249,15 +254,15 @@ export default function ContactTable() {
     }
   };
 
-  // Delete: first move contact data to "deletedContacts", then delete from "contacts" and "status"
   const handleDelete = async () => {
     try {
       await Promise.all(
         selectedIds.map(async (id) => {
           const contact = contacts.find((c) => c.id === id);
           if (contact) {
-            // Save to "deletedContacts"
-            await setDoc(doc(firestore, "deletedContacts", id), contact);
+            const deletedBy = user?.email || "Unknown";
+            // Save to "deletedContacts" with additional deletedBy field
+            await setDoc(doc(firestore, "deletedContacts", id), { ...contact, deletedBy });
             // Delete from "contacts" and "status"
             await deleteDoc(doc(firestore, "contacts", id));
             await deleteDoc(doc(firestore, "status", id));
@@ -676,6 +681,9 @@ export default function ContactTable() {
                     <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                       Deleted At
                     </th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
+                      Deleted By
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -688,6 +696,7 @@ export default function ContactTable() {
                           ? contact.createdAt.toDate().toLocaleString()
                           : String(contact.createdAt)}
                       </td>
+                      <td className="py-2 px-4">{contact.deletedBy}</td>
                     </tr>
                   ))}
                 </tbody>
