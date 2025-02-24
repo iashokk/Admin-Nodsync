@@ -1,10 +1,16 @@
-"use client";
 import { UserMetrics } from "@/components/ecommerce/UserMetrics";
 import React from "react";
 import UsersSignedup from "@/components/ecommerce/UsersSignedup";
 import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 import DailyViews from "@/components/ecommerce/DailyViewsChart";
 import LogTable from "@/components/tables/LogTable";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "NodSync Admin Dashboard",
+  description: "NodSync Admin Dashboard",
+};
+
 
 
 export default function Dashboard() {

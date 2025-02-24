@@ -5,8 +5,8 @@ import ContactTable from "@/components/tables/ContactTable";
 import { UserMetrics } from "@/components/ecommerce/UserMetrics";
 import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 export const metadata: Metadata = {
-  title: "NodSync Contact Dashboard",
-  description: "NodSync Admin Dashboard",
+  title: "NodSync Contact",
+  description: "NodSync Contact",
 };
 
 export default function Contact() {
