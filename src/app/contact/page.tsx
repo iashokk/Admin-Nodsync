@@ -7,6 +7,10 @@ import RevenueDetails from "@/components/ecommerce/RevenueDetails";
 export const metadata: Metadata = {
   title: "NodSync Contact",
   description: "NodSync Contact",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function Contact() {

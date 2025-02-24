@@ -9,6 +9,10 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "NodSync Admin Dashboard",
   description: "NodSync Admin Dashboard",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 

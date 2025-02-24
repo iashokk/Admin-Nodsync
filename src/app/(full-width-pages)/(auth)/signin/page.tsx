@@ -7,6 +7,10 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "NodSync Admin",
   description: "This is NodSync Admin Signin Page",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function SignIn() {
