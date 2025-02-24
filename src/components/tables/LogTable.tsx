@@ -36,6 +36,7 @@ export default function LogTable() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(true);
 
+  const logLoadLimit = 20;
   // Function to load logs
   const loadLogs = async (loadMore = false) => {
     setLoading(true);
@@ -47,10 +48,10 @@ export default function LogTable() {
           logsCollection,
           orderBy("timestamp", "desc"),
           startAfter(lastDoc),
-          limit(50)
+          limit(logLoadLimit)
         );
       } else {
-        q = query(logsCollection, orderBy("timestamp", "desc"), limit(50));
+        q = query(logsCollection, orderBy("timestamp", "desc"), limit(logLoadLimit));
       }
       const snapshot = await getDocs(q);
       const newLogs: LogEntry[] = snapshot.docs.map((doc) => {
