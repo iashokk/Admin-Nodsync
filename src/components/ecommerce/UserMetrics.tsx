@@ -5,6 +5,12 @@ import { collection, getCountFromServer } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import Badge from "../ui/badge/Badge";
 
+interface StoredMetrics {
+  count: number;
+  timestamp: number;
+  lastView: number | null;
+}
+
 export const UserMetrics = () => {
   const [contactsCount, setContactsCount] = useState<number | null>(null);
   const [usersCount, setUsersCount] = useState<number | null>(null);
@@ -15,78 +21,109 @@ export const UserMetrics = () => {
   const [usersDiff, setUsersDiff] = useState<number>(0);
   const [contactsDiff, setContactsDiff] = useState<number>(0);
 
-  // 60 minutes window in milliseconds
-  const windowMs = 60 * 60 * 1000;
+  // Use a 120-minute window (in milliseconds)
+  const windowMs = 120 * 60 * 1000;
 
-  useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        // Get count for "contacts" collection
-        const contactsRef = collection(firestore, "contacts");
-        const contactsSnapshot = await getCountFromServer(contactsRef);
-        const contactsTotal = contactsSnapshot.data().count;
-        setContactsCount(contactsTotal);
+  const fetchCounts = async () => {
+    try {
+      // Fetch contacts count
+      const contactsRef = collection(firestore, "contacts");
+      const contactsSnapshot = await getCountFromServer(contactsRef);
+      const contactsTotal = contactsSnapshot.data().count;
+      setContactsCount(contactsTotal);
 
-        // Get counts for "users" and "old_users" collections
-        const usersRef = collection(firestore, "users");
-        const oldUsersRef = collection(firestore, "old_users");
+      // Fetch users count from both "users" and "old_users"
+      const usersRef = collection(firestore, "users");
+      const oldUsersRef = collection(firestore, "old_users");
+      const [usersSnapshot, oldUsersSnapshot] = await Promise.all([
+        getCountFromServer(usersRef),
+        getCountFromServer(oldUsersRef),
+      ]);
+      const totalUsers = usersSnapshot.data().count + oldUsersSnapshot.data().count;
+      setUsersCount(totalUsers);
 
-        const [usersSnapshot, oldUsersSnapshot] = await Promise.all([
-          getCountFromServer(usersRef),
-          getCountFromServer(oldUsersRef),
-        ]);
-        const totalUsers = usersSnapshot.data().count + oldUsersSnapshot.data().count;
-        setUsersCount(totalUsers);
+      const now = Date.now();
 
-        const now = Date.now();
-
-        // For Users
-        const storedUserMetrics = localStorage.getItem("userMetrics");
-        if (storedUserMetrics) {
-          try {
-            const { count: storedCount, timestamp } = JSON.parse(storedUserMetrics);
-            if (now - timestamp < windowMs) {
-              setUsersDiff(totalUsers - storedCount);
+      // --- For Users ---
+      const userKey = "userMetrics";
+      const storedUserMetricsStr = localStorage.getItem(userKey);
+      if (!storedUserMetricsStr) {
+        // Initialize baseline if not present
+        const newMetrics: StoredMetrics = { count: totalUsers, timestamp: now, lastView: null };
+        localStorage.setItem(userKey, JSON.stringify(newMetrics));
+        setUsersDiff(0);
+      } else {
+        try {
+          const stored: StoredMetrics = JSON.parse(storedUserMetricsStr);
+          if (stored.lastView === null) {
+            // Diff is computed relative to stored.count
+            const diff = totalUsers - stored.count;
+            setUsersDiff(diff);
+            if (diff > 0) {
+              // New users detected; set lastView to now (freeze baseline for 1 hour)
+              stored.lastView = now;
+              localStorage.setItem(userKey, JSON.stringify(stored));
+            }
+          } else {
+            // lastView exists; check if window has expired
+            if (now - stored.lastView < windowMs) {
+              setUsersDiff(totalUsers - stored.count);
             } else {
-              localStorage.setItem("userMetrics", JSON.stringify({ count: totalUsers, timestamp: now }));
+              // Window expired: reset baseline
+              const newMetrics: StoredMetrics = { count: totalUsers, timestamp: now, lastView: null };
+              localStorage.setItem(userKey, JSON.stringify(newMetrics));
               setUsersDiff(0);
             }
-          } catch (err) {
-            localStorage.setItem("userMetrics", JSON.stringify({ count: totalUsers, timestamp: now }));
-            setUsersDiff(0);
           }
-        } else {
-          localStorage.setItem("userMetrics", JSON.stringify({ count: totalUsers, timestamp: now }));
+        } catch (err) {
+          // In case of parsing error, reinitialize
+          const newMetrics: StoredMetrics = { count: totalUsers, timestamp: now, lastView: null };
+          localStorage.setItem(userKey, JSON.stringify(newMetrics));
           setUsersDiff(0);
         }
+      }
 
-        // For Contacts
-        const storedContactMetrics = localStorage.getItem("contactMetrics");
-        if (storedContactMetrics) {
-          try {
-            const { count: storedCount, timestamp } = JSON.parse(storedContactMetrics);
-            if (now - timestamp < windowMs) {
-              setContactsDiff(contactsTotal - storedCount);
+      // --- For Contacts (similar logic) ---
+      const contactKey = "contactMetrics";
+      const storedContactMetricsStr = localStorage.getItem(contactKey);
+      if (!storedContactMetricsStr) {
+        const newMetrics: StoredMetrics = { count: contactsTotal, timestamp: now, lastView: null };
+        localStorage.setItem(contactKey, JSON.stringify(newMetrics));
+        setContactsDiff(0);
+      } else {
+        try {
+          const stored: StoredMetrics = JSON.parse(storedContactMetricsStr);
+          if (stored.lastView === null) {
+            const diff = contactsTotal - stored.count;
+            setContactsDiff(diff);
+            if (diff > 0) {
+              stored.lastView = now;
+              localStorage.setItem(contactKey, JSON.stringify(stored));
+            }
+          } else {
+            if (now - stored.lastView < windowMs) {
+              setContactsDiff(contactsTotal - stored.count);
             } else {
-              localStorage.setItem("contactMetrics", JSON.stringify({ count: contactsTotal, timestamp: now }));
+              const newMetrics: StoredMetrics = { count: contactsTotal, timestamp: now, lastView: null };
+              localStorage.setItem(contactKey, JSON.stringify(newMetrics));
               setContactsDiff(0);
             }
-          } catch (err) {
-            localStorage.setItem("contactMetrics", JSON.stringify({ count: contactsTotal, timestamp: now }));
-            setContactsDiff(0);
           }
-        } else {
-          localStorage.setItem("contactMetrics", JSON.stringify({ count: contactsTotal, timestamp: now }));
+        } catch (err) {
+          const newMetrics: StoredMetrics = { count: contactsTotal, timestamp: now, lastView: null };
+          localStorage.setItem(contactKey, JSON.stringify(newMetrics));
           setContactsDiff(0);
         }
-      } catch (err: any) {
-        console.error("Error fetching counts:", err);
-        setError("Failed to fetch metrics");
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err: any) {
+      console.error("Error fetching counts:", err);
+      setError("Failed to fetch metrics");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCounts();
 
     // Listen for localStorage changes across tabs
@@ -99,7 +136,7 @@ export const UserMetrics = () => {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // Helper function to render the difference badge
+  // Helper to render the difference badge using your Badge component
   const renderDiff = (diff: number) => {
     if (diff > 0) {
       return (
