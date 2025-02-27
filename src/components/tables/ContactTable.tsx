@@ -26,7 +26,7 @@ import {
 import { firestore, auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 
-// Define interfaces for contacts and status
+// Define the interface for a Contact document from Firestore
 interface Contact {
   id: string;
   createdAt: Timestamp;
@@ -40,6 +40,7 @@ interface Contact {
   topic: string;
 }
 
+// Define the interface for Status data
 interface StatusData {
   isDone: boolean;
   status: string;
@@ -101,7 +102,7 @@ export default function ContactTable() {
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("All");
 
-  // New state for pagination
+  // State for pagination
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const batchSize = 50; // Limiting Firestore calls
@@ -112,6 +113,7 @@ export default function ContactTable() {
 
   const [user] = useAuthState(auth);
 
+  // Fetch active contacts
   const fetchContacts = async (loadMore = false) => {
     setLoading(true);
     try {
@@ -132,7 +134,7 @@ export default function ContactTable() {
       const moreAvailable = docs.length > batchSize;
       // Use only the first batchSize docs for display.
       const docsToUse = moreAvailable ? docs.slice(0, batchSize) : docs;
-      
+
       const fetchedContacts: ContactWithStatus[] = await Promise.all(
         docsToUse.map(async (docSnap) => {
           const contactData = docSnap.data() as Contact;
@@ -254,6 +256,7 @@ export default function ContactTable() {
     }
   };
 
+  // Delete: move the contact to "deletedContacts" with a deletedBy field, then delete from "contacts" and "status"
   const handleDelete = async () => {
     try {
       await Promise.all(
@@ -506,8 +509,19 @@ export default function ContactTable() {
               contact.status.toLowerCase() === "cancelled" ? "line-through text-gray-400" : ""
             } dark:bg-gray-800 dark:border-gray-700`}
           >
+            {/* Top section with Name and Checkbox */}
             <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold text-gray-800 dark:text-white">
+              <span 
+                onClick={() =>
+                  setPopupData({
+                    type: "name",
+                    name: contact.name + " " + (contact.surname || ""),
+                    email: contact.email,
+                    number: contact.number,
+                  })
+                }
+                className={`text-lg font-semibold ${getNameColor(contact.status)}`}
+              >
                 {contact.name} {contact.surname}
               </span>
               <input
@@ -517,22 +531,8 @@ export default function ContactTable() {
                 className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
               />
             </div>
+            {/* Details section without duplicate name */}
             <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-              <p>
-                <span
-                  onClick={() =>
-                    setPopupData({
-                      type: "name",
-                      name: contact.name + " " + (contact.surname || ""),
-                      email: contact.email,
-                      number: contact.number,
-                    })
-                  }
-                  className="cursor-pointer text-blue-600 hover:underline"
-                >
-                  {contact.name} {contact.surname}
-                </span>
-              </p>
               <p>
                 <span
                   onClick={() =>
@@ -688,7 +688,7 @@ export default function ContactTable() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {deletedContacts.map((contact) => (
-                    <tr key={contact.id} className="text-gray-500">
+                    <tr key={contact.id} className="text-red-500">
                       <td className="py-2 px-4">{contact.name} {contact.surname}</td>
                       <td className="py-2 px-4">{contact.subject}</td>
                       <td className="py-2 px-4">
