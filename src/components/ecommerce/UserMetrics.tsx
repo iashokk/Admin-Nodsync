@@ -59,7 +59,7 @@ export const UserMetrics = () => {
             // Diff is computed relative to stored.count
             const diff = totalUsers - stored.count;
             setUsersDiff(diff);
-            if (diff > 0) {
+            if (diff !== 0) {
               // New users detected; set lastView to now (freeze baseline for 1 hour)
               stored.lastView = now;
               localStorage.setItem(userKey, JSON.stringify(stored));
@@ -96,7 +96,7 @@ export const UserMetrics = () => {
           if (stored.lastView === null) {
             const diff = contactsTotal - stored.count;
             setContactsDiff(diff);
-            if (diff > 0) {
+            if (diff !== 0) {
               stored.lastView = now;
               localStorage.setItem(contactKey, JSON.stringify(stored));
             }
